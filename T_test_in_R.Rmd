@@ -1,0 +1,70 @@
+---
+title: "t-test in R"
+output: html_notebook
+---
+
+##问题
+在R中，我们如何检验从总体中抽样得到的两组样本是否有不同的均值，或是通过总体中的某一组样本检验总体均值与某一理论均值间的差异。
+
+##指南
+示例数据 我们选择内置的sleep数据集作为示例数据。
+
+```{r}
+head(sleep)
+```
+接下来，我们将sleep数据集处理为宽数据；这里我要用到reshape2包的dcast()函数：
+```{r}
+library(reshape2)
+sleep.wide <- dcast(sleep,ID ~ group, value.var = 'extra')
+head(sleep.wide)
+```
+
+##两组数据的对比：独立双样本t检验
+首先假设我们的两组数据完全由独立抽样得来；为了达成这个目的，我们暂且忽略掉ID这个变量的存在。
+t.test函数可以直接用于检验像sleep这样的长数据，在下面的例子中，列extra中记录着用于检验的数值，而列group则为样本的分组依据；如果数据没有以数据框形式存储，我们同样可以通过指定两个独立的向量来完成这一操作。
+```{r}
+# Welch t test （样本方差不等）
+t.test(extra ~ group, sleep)
+
+# 以宽数据为操作对象(指定两个独立的向量)
+t.test(sleep.wide$`1`,sleep.wide$`2`)
+```
+
+默认地，t.test不会假设样本具有相同的方差，因此该函数默认地调用Welch t检验方法而不是student t检验。可以看到在上文的Welch t检验中，自由度df＝17.776，这是由于方法内对于可能存在的非均等方差的调整。如果我们要调用student t检验方法，那么我们需要设置参数var.equal=TRUE。
+
+
+```{r}
+# student t test (样本方差一致)
+t.test(extra ~ group, sleep,var.equal = TRUE)
+
+# 以宽数据为操作对象(指定两个独立的向量)
+t.test(sleep.wide$`1`,sleep.wide$`2`, var.equal = TRUE)
+```
+##配对样本t检验
+有时需要我们检验的数据可能是同一个实验对象在实验前后的某一关键指标数值，或是相互匹配的两组对象在进行不同实验之后的数值反应，也就是说，我们得到的两组样本数据间具有某种配对关系。此时，我们可以通过配对样本t检验的方式对其进行检验。
+同样的，在上文中我们提及了t-test函数可以兼用于一个带有分组变量的数据框或是两个独立的向量。在配对样本中，样本的配对关系取决于其对应的位置。如果我们的数据集为包含分组变量的数据框，那么程序将默认group=1的数据行中的第一行与group=2的数据行中的第一行相互匹配。所以我们需要特别注意数据的排列顺序并确保其中没有缺失值，否则样本间的配对就不得不被打破。在下面的例子中，我们运用group和ID两个变量来确保数据排序的正确。
+
+配对t检验的实质等同于检验每组相互配对的样本数据的差值的总体均值是否为0。（详情可见下文中单样本t检验的内容）
+```{r}
+# 先后以列group和ID对数据进行排序
+sleep.sor <- sleep[order(sleep$group,sleep$ID),]
+
+# paired t test
+t.test(extra ~ group, sleep, paired = TRUE)
+
+# 以宽数据为操作对象(指定两个独立的向量)
+t.test(sleep.wide$`1`,sleep.wide$`2`,paired = TRUE)
+```
+##样本与外生总体均值的对比：单样本t检验
+假设现在我们的目的为检验列extra数据对应的总体均值是否为0和1.5，在下面的例子中，我们暂时忽略了变量group与变量ID。
+```{r}
+# 单样本检验均值是否为0
+t.test(sleep$extra,mu = 0)
+
+# 单样本检验均值是否为1.5
+t.test(sleep$extra,mu = 0)
+```
+
+
+
+
